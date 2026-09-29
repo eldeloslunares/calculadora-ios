@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Calculadora</title>
+  
+  <!-- Optimización específica para iOS Web App / PWA -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Calculadora">
+  <meta name="theme-color" content="#000000">
+  <meta name="format-detection" content="telephone=no">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root {
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-left: env(safe-area-inset-left, 0px);
+      --safe-right: env(safe-area-inset-right, 0px);
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      overflow: hidden;
+      position: fixed;
+      inset: 0;
+      background-color: #000000;
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      overscroll-behavior: none;
+    }
+
+    /* Contenedor principal con safe-areas de Apple */
+    .app-viewport {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      max-width: 440px;
+      margin: 0 auto;
+      padding-top: calc(var(--safe-top) + 8px);
+      padding-bottom: calc(var(--safe-bottom) + 16px);
+      padding-left: calc(var(--safe-left) + 16px);
+      padding-right: calc(var(--safe-right) + 16px);
+    }
+
+    /* Botones de acción táctil ultra fluidos */
+    .calc-btn {
+      touch-action: manipulation;
+      border: none;
+      outline: none;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+      font-weight: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: filter 0.08s ease, background-color 0.18s ease, color 0.18s ease;
+      cursor: pointer;
+    }
+
+    /* Colores nativos de iOS */
+    .btn-num {
+      background-color: #333333;
+      color: #ffffff;
+    }
+    .btn-num:active {
+      background-color: #737373;
+    }
+
+    .btn-top {
+      background-color: #a5a5a5;
+      color: #000000;
+      font-weight: 500;
+    }
+    .btn-top:active {
+      background-color: #d4d4d2;
+    }
+
+    .btn-op {
+      background-color: #ff9f0a;
+      color: #ffffff;
+      font-size: 2.3rem;
+      padding-bottom: 2px;
+    }
+    .btn-op:active {
+      background-color: #fbc78d;
+    }
+
+    /* Estado de operador seleccionado (fondo blanco con texto naranja) */
+    .btn-op.is-active {
+      background-color: #ffffff !important;
+      color: #ff9f0a !important;
+    }
+
+    /* Ajuste responsivo de la cuadrícula en pantallas pequeñas */
+    @media (max-height: 670px) {
+      .app-viewport {
+        padding-bottom: calc(var(--safe-bottom) + 8px);
+      }
+      .calc-grid {
+        gap: 10px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-viewport">
+    
+    <!-- Zona de Pantalla con soporte de gesto Swipe para eliminar dígitos -->
+    <section 
+      id="display-wrapper" 
+      class="w-full flex-1 flex flex-col justify-end items-end px-3 pb-4 select-none cursor-pointer"
+      title="Desliza horizontalmente para borrar"
+    >
+      <div 
+        id="display-text" 
+        class="text-right font-light tracking-tight text-white leading-none whitespace-nowrap overflow-hidden transition-all duration-100"
+        style="font-size: 84px;"
+      >
+        0
+      </div>
+    </section>
+
+    <!-- Matriz de Botones 5x4 con diseño proporcional -->
+    <div class="calc-grid grid grid-cols-4 gap-3 sm:gap-3.5 w-full">
+      
+      <!-- Fila 1 -->
+      <button id="btn-clear" class="calc-btn btn-top aspect-square rounded-full text-2xl sm:text-3xl">AC</button>
+      <button id="btn-sign" class="calc-btn btn-top aspect-square rounded-full text-2xl sm:text-3xl">⁺∕₋</button>
+      <button id="btn-percent" class="calc-btn btn-top aspect-square rounded-full text-2xl sm:text-3xl">%</button>
+      <button data-op="÷" class="calc-btn btn-op aspect-square rounded-full">÷</button>
+
+      <!-- Fila 2 -->
+      <button data-num="7" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">7</button>
+      <button data-num="8" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">8</button>
+      <button data-num="9" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">9</button>
+      <button data-op="×" class="calc-btn btn-op aspect-square rounded-full">×</button>
+
+      <!-- Fila 3 -->
+      <button data-num="4" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">4</button>
+      <button data-num="5" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">5</button>
+      <button data-num="6" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">6</button>
+      <button data-op="−" class="calc-btn btn-op aspect-square rounded-full">−</button>
+
+      <!-- Fila 4 -->
+      <button data-num="1" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">1</button>
+      <button data-num="2" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">2</button>
+      <button data-num="3" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl">3</button>
+      <button data-op="+" class="calc-btn btn-op aspect-square rounded-full">+</button>
+
+      <!-- Fila 5: Botón 0 alargado en forma de píldora que ocupa dos columnas -->
+      <button 
+        data-num="0" 
+        class="calc-btn btn-num col-span-2 rounded-full text-3xl sm:text-4xl justify-start pl-[28px] sm:pl-[34px]"
+        style="aspect-ratio: 2.15 / 1;"
+      >
+        0
+      </button>
+      <button id="btn-comma" class="calc-btn btn-num aspect-square rounded-full text-3xl sm:text-4xl pb-1">,</button>
+      <button id="btn-equals" class="calc-btn btn-op aspect-square rounded-full">=</button>
+
+    </div>
+  </div>
+
+  <script>
+    // Estado del motor
+    let currentInput = '0';
+    let storedValue = null;
+    let currentOp = null;
+    let expectOperand = false;
+    let lastOperation = null;
+
+    // Elementos del DOM
+    const displayElement = document.getElementById('display-text');
+    const displayWrapper = document.getElementById('display-wrapper');
+    const clearBtn = document.getElementById('btn-clear');
+    const opButtons = document.querySelectorAll('[data-op]');
+
+    // Vibración haptic sutil estilo Taptic Engine de Apple
+    function triggerHaptic() {
+      if (window.navigator && window.navigator.vibrate) {
+        window.navigator.vibrate(10);
+      }
+    }
+
+    // Formateo de números al estilo iOS (separación de miles con puntos y coma decimal)
+    function formatNumber(str) {
+      if (str === 'Error' || str === 'NaN' || str === 'Infinity' || str === '-Infinity') {
+        return 'Error';
+      }
+
+      if (str.includes('e') || str.includes('E')) {
+        const n = parseFloat(str);
+        return n.toExponential(4).replace('e+', 'e');
+      }
+
+      const parts = str.split('.');
+      const integerPart = parts[0];
+      const isNeg = integerPart.startsWith('-');
+      const absInt = isNeg ? integerPart.slice(1) : integerPart;
+      
+      const formattedInt = absInt.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      const sign = isNeg ? '-' : '';
+
+      if (parts.length > 1) {
+        return `${sign}${formattedInt},${parts[1]}`;
+      }
+      return `${sign}${formattedInt}`;
+    }
+
+    // Escalado adaptativo de tipografía
+    function adjustFontSize() {
+      const len = displayElement.textContent.length;
+      let size = 84;
+
+      if (len > 9) {
+        size = 40;
+      } else if (len > 8) {
+        size = 46;
+      } else if (len > 7) {
+        size = 54;
+      } else if (len > 6) {
+        size = 64;
+      } else if (len > 5) {
+        size = 74;
+      }
+
+      displayElement.style.fontSize = `${size}px`;
+    }
+
+    // Actualización de pantalla y botón AC / C
+    function refreshDisplay(val = currentInput) {
+      displayElement.textContent = formatNumber(val);
+      adjustFontSize();
+
+      if (currentInput !== '0' || storedValue !== null) {
+        clearBtn.textContent = 'C';
+      } else {
+        clearBtn.textContent = 'AC';
+      }
+    }
+
+    function clearOpHighlights() {
+      opButtons.forEach(btn => btn.classList.remove('is-active'));
+    }
+
+    function setOpHighlight(op) {
+      clearOpHighlights();
+      if (!op) return;
+      opButtons.forEach(btn => {
+        if (btn.getAttribute('data-op') === op) {
+          btn.classList.add('is-active');
+        }
+      });
+    }
+
+    // Entrada de dígitos
+    function pressDigit(digit) {
+      triggerHaptic();
+      clearOpHighlights();
+
+      if (expectOperand) {
+        currentInput = String(digit);
+        expectOperand = false;
+      } else {
+        const countDigits = currentInput.replace(/[^0-9]/g, '').length;
+        if (countDigits >= 9 && currentInput !== '0') {
+          return;
+        }
+        currentInput = (currentInput === '0') ? String(digit) : currentInput + digit;
+      }
+      lastOperation = null;
+      refreshDisplay();
+    }
+
+    // Entrada decimal
+    function pressDecimal() {
+      triggerHaptic();
+      clearOpHighlights();
+
+      if (expectOperand) {
+        currentInput = '0.';
+        expectOperand = false;
+        refreshDisplay();
+        return;
+      }
+
+      if (!currentInput.includes('.')) {
+        currentInput += '.';
+        displayElement.textContent = formatNumber(currentInput) + ',';
+      }
+    }
+
+    // Motor de cálculo con precisión de 12 dígitos
+    function evaluate(a, b, op) {
+      const n1 = parseFloat(a);
+      const n2 = parseFloat(b);
+
+      switch (op) {
+        case '+':
+          return n1 + n2;
+        case '−':
+        case '-':
+          return n1 - n2;
+        case '×':
+        case '*':
+          return n1 * n2;
+        case '÷':
+        case '/':
+          if (n2 === 0) return 'Error';
+          return n1 / n2;
+        default:
+          return n2;
+      }
+    }
+
+    function pressOperator(op) {
+      triggerHaptic();
+      const inputNum = parseFloat(currentInput);
+
+      if (currentOp && expectOperand) {
+        currentOp = op;
+        setOpHighlight(op);
+        return;
+      }
+
+      if (storedValue === null && !isNaN(inputNum)) {
+        storedValue = currentInput;
+      } else if (currentOp) {
+        const result = evaluate(storedValue, currentInput, currentOp);
+        if (result === 'Error' || isNaN(result)) {
+          currentInput = 'Error';
+          storedValue = null;
+          currentOp = null;
+          refreshDisplay();
+          return;
+        }
+        const cleaned = parseFloat(result.toPrecision(12)).toString();
+        currentInput = cleaned;
+        storedValue = cleaned;
+        refreshDisplay();
+      }
+
+      expectOperand = true;
+      currentOp = op;
+      setOpHighlight(op);
+    }
+
+    function pressEquals() {
+      triggerHaptic();
+      clearOpHighlights();
+
+      if (!currentOp && lastOperation) {
+        const res = evaluate(currentInput, lastOperation.operand, lastOperation.op);
+        if (res === 'Error' || isNaN(res)) {
+          currentInput = 'Error';
+        } else {
+          currentInput = parseFloat(res.toPrecision(12)).toString();
+        }
+        refreshDisplay();
+        return;
+      }
+
+      if (currentOp) {
+        const second = expectOperand ? storedValue : currentInput;
+        const res = evaluate(storedValue, second, currentOp);
+
+        lastOperation = {
+          op: currentOp,
+          operand: second
+        };
+
+        if (res === 'Error' || isNaN(res)) {
+          currentInput = 'Error';
+        } else {
+          currentInput = parseFloat(res.toPrecision(12)).toString();
+        }
+
+        storedValue = null;
+        currentOp = null;
+        expectOperand = false;
+        refreshDisplay();
+      }
+    }
+
+    function pressPercent() {
+      triggerHaptic();
+      let n = parseFloat(currentInput);
+      if (isNaN(n)) return;
+
+      if (currentOp && ['+', '−', '-'].includes(currentOp) && storedValue !== null) {
+        n = (parseFloat(storedValue) * n) / 100;
+      } else {
+        n = n / 100;
+      }
+
+      currentInput = parseFloat(n.toPrecision(12)).toString();
+      refreshDisplay();
+    }
+
+    function pressSign() {
+      triggerHaptic();
+      if (currentInput === '0' || currentInput === 'Error') return;
+      currentInput = currentInput.startsWith('-') ? currentInput.slice(1) : '-' + currentInput;
+      refreshDisplay();
+    }
+
+    function pressClear() {
+      triggerHaptic();
+      if (clearBtn.textContent === 'C' && currentInput !== '0') {
+        currentInput = '0';
+        clearBtn.textContent = 'AC';
+      } else {
+        currentInput = '0';
+        storedValue = null;
+        currentOp = null;
+        expectOperand = false;
+        lastOperation = null;
+        clearOpHighlights();
+      }
+      refreshDisplay();
+    }
+
+    // Borrado por retroceso / gesto de Swipe nativo
+    function deleteDigit() {
+      if (expectOperand || currentInput === 'Error') return;
+      triggerHaptic();
+
+      if (currentInput.length > 1) {
+        currentInput = currentInput.slice(0, -1);
+        if (currentInput === '-' || currentInput === '-0') {
+          currentInput = '0';
+        }
+      } else {
+        currentInput = '0';
+      }
+      refreshDisplay();
+    }
+
+    // Gesto de Swipe sobre los números de la pantalla
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    displayWrapper.addEventListener('touchstart', (e) => {
+      const touch = e.changedTouches[0];
+      touchStartX = touch.screenX;
+      touchStartY = touch.screenY;
+    }, { passive: true });
+
+    displayWrapper.addEventListener('touchend', (e) => {
+      const touch = e.changedTouches[0];
+      const deltaX = touch.screenX - touchStartX;
+      const deltaY = touch.screenY - touchStartY;
+
+      // Deslizamiento predominantemente horizontal
+      if (Math.abs(deltaX) > 30 && Math.abs(deltaY) < 40) {
+        deleteDigit();
+      }
+    }, { passive: true });
+
+    // Asignación de eventos táctiles y clics
+    document.querySelectorAll('[data-num]').forEach(btn => {
+      btn.addEventListener('click', () => pressDigit(btn.getAttribute('data-num')));
+    });
+
+    opButtons.forEach(btn => {
+      btn.addEventListener('click', () => pressOperator(btn.getAttribute('data-op')));
+    });
+
+    document.getElementById('btn-comma').addEventListener('click', pressDecimal);
+    document.getElementById('btn-equals').addEventListener('click', pressEquals);
+    document.getElementById('btn-clear').addEventListener('click', pressClear);
+    document.getElementById('btn-percent').addEventListener('click', pressPercent);
+    document.getElementById('btn-sign').addEventListener('click', pressSign);
+
+    // Soporte para teclado físico (iPad o Mac con teclado externo)
+    window.addEventListener('keydown', (e) => {
+      if (e.key >= '0' && e.key <= '9') {
+        pressDigit(e.key);
+      } else if (e.key === '.' || e.key === ',') {
+        pressDecimal();
+      } else if (e.key === '+') {
+        pressOperator('+');
+      } else if (e.key === '-') {
+        pressOperator('−');
+      } else if (e.key === '*') {
+        pressOperator('×');
+      } else if (e.key === '/') {
+        e.preventDefault();
+        pressOperator('÷');
+      } else if (e.key === 'Enter' || e.key === '=') {
+        e.preventDefault();
+        pressEquals();
+      } else if (e.key === 'Backspace') {
+        deleteDigit();
+      } else if (e.key === 'Escape') {
+        pressClear();
+      } else if (e.key === '%') {
+        pressPercent();
+      }
+    });
+
+    // Iniciar con estado inicial
+    refreshDisplay();
+  </script>
+</body>
+</html>
